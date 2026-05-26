@@ -211,7 +211,104 @@
   </div>
 
   <script>
-    // JS will be added in subsequent tasks
+// ===== Data Layer =====
+const STORAGE_KEY_TASKS = 'doit_tasks';
+const STORAGE_KEY_CATEGORIES = 'doit_categories';
+const DEFAULT_CATEGORIES = ['工作', '生活', '学习'];
+
+function generateId() {
+  return 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+}
+
+function loadTasks() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY_TASKS);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveTasks(tasks) {
+  localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks));
+}
+
+function loadCategories() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY_CATEGORIES);
+    return data ? JSON.parse(data) : [...DEFAULT_CATEGORIES];
+  } catch { return [...DEFAULT_CATEGORIES]; }
+}
+
+function saveCategories(categories) {
+  localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(categories));
+}
+
+function addTask(taskData) {
+  const tasks = loadTasks();
+  const task = {
+    id: generateId(),
+    title: taskData.title.trim(),
+    category: taskData.category,
+    priority: taskData.priority,
+    dueDate: taskData.dueDate || '',
+    status: taskData.status || 'todo',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  tasks.push(task);
+  saveTasks(tasks);
+  return task;
+}
+
+function updateTask(id, updates) {
+  const tasks = loadTasks();
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx === -1) return null;
+  tasks[idx] = { ...tasks[idx], ...updates, updatedAt: new Date().toISOString() };
+  saveTasks(tasks);
+  return tasks[idx];
+}
+
+function deleteTask(id) {
+  const tasks = loadTasks();
+  const filtered = tasks.filter(t => t.id !== id);
+  saveTasks(filtered);
+  return filtered;
+}
+
+function moveTask(id, newStatus) {
+  return updateTask(id, { status: newStatus });
+}
+
+function exportTasks() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tasks: loadTasks(),
+    categories: loadCategories()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `doit-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importTasks(jsonData) {
+  try {
+    const data = JSON.parse(jsonData);
+    if (!data.tasks || !Array.isArray(data.tasks)) throw new Error('Invalid format');
+    saveTasks(data.tasks);
+    if (data.categories && Array.isArray(data.categories)) {
+      saveCategories(data.categories);
+    }
+    return true;
+  } catch (e) {
+    alert('导入失败：文件格式不正确');
+    return false;
+  }
+}
   </script>
 </body>
 </html>
