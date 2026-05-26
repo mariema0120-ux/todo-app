@@ -330,9 +330,19 @@ function importTasks(jsonData) {
     return false;
   }
 }
-// ===== Stub DnD handlers (Task 6) =====
-function onDragStart(e) {}
-function onDragEnd(e) {}
+// ===== Drag & Drop =====
+function onDragStart(e) {
+  const card = this.closest('.task-card');
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', card.dataset.taskId);
+}
+
+function onDragEnd(e) {
+  const card = this.closest('.task-card');
+  if (card) card.classList.remove('dragging');
+  document.querySelectorAll('.column-body').forEach(el => el.classList.remove('drag-over'));
+}
 
 // ===== Render Layer =====
 let currentFilter = 'all';
@@ -537,6 +547,44 @@ function confirmDelete(id) {
 
 // ===== Event Bindings =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Drop zone setup
+  document.querySelectorAll('.column-body').forEach(columnBody => {
+    columnBody.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      columnBody.classList.add('drag-over');
+    });
+
+    columnBody.addEventListener('dragleave', () => {
+      columnBody.classList.remove('drag-over');
+    });
+
+    columnBody.addEventListener('drop', (e) => {
+      e.preventDefault();
+      columnBody.classList.remove('drag-over');
+
+      const taskId = e.dataTransfer.getData('text/plain');
+      if (!taskId) return;
+
+      const column = columnBody.closest('.kanban-column');
+      const newStatus = column.dataset.status;
+
+      const tasks = loadTasks();
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || task.status === newStatus) return;
+
+      // Visual feedback: fade old card
+      const oldCard = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+      if (oldCard) {
+        oldCard.style.transition = 'transform 0.2s, opacity 0.2s';
+        oldCard.style.opacity = '0';
+      }
+
+      moveTask(taskId, newStatus);
+      setTimeout(renderBoard, 200);
+    });
+  });
+
   // Filter chips
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => applyFilter(chip.dataset.category));
