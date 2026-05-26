@@ -330,6 +330,104 @@ function importTasks(jsonData) {
     return false;
   }
 }
+// ===== Stub DnD handlers (Task 6) =====
+function onDragStart(e) {}
+function onDragEnd(e) {}
+
+// ===== Render Layer =====
+let currentFilter = 'all';
+
+function getFilteredTasks() {
+  const tasks = loadTasks();
+  if (currentFilter === 'all') return tasks;
+  return tasks.filter(t => t.category === currentFilter);
+}
+
+const PRIORITY_LABELS = { high: '🔴 高', medium: '🟡 中', low: '🟢 低' };
+const CATEGORY_ICONS = { '工作': '💼', '生活': '🏠', '学习': '📚' };
+
+function createTaskCard(task) {
+  const card = document.createElement('div');
+  card.className = `task-card priority-${task.priority}`;
+  if (task.status === 'done') card.classList.add('done');
+  card.draggable = true;
+  card.dataset.taskId = task.id;
+
+  card.innerHTML = `
+    <div class="task-title">${escapeHtml(task.title)}</div>
+    <div class="task-meta">
+      ${task.category ? `<span>${CATEGORY_ICONS[task.category] || ''} ${task.category}</span>` : ''}
+      ${task.dueDate ? `<span>📅 ${formatDate(task.dueDate)}</span>` : ''}
+      <span>${PRIORITY_LABELS[task.priority] || '🟡 中'}</span>
+    </div>
+    <div class="task-card-actions">
+      <button class="btn-edit" onclick="editTask('${task.id}')">✏️ 编辑</button>
+      <button class="btn-delete" onclick="confirmDelete('${task.id}')">🗑 删除</button>
+    </div>
+  `;
+
+  // Drag events (handlers will be defined in Task 6)
+  card.addEventListener('dragstart', onDragStart);
+  card.addEventListener('dragend', onDragEnd);
+
+  return card;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diff = (d - today) / 86400000;
+  if (diff < 0) return `已过期 ${d.getMonth()+1}/${d.getDate()}`;
+  if (diff === 0) return '今天';
+  if (diff === 1) return '明天';
+  if (diff < 7) return `周${'日一二三四五六'[d.getDay()]}`;
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function renderBoard() {
+  const filteredTasks = getFilteredTasks();
+  const columns = ['todo', 'doing', 'done'];
+
+  columns.forEach(status => {
+    const columnBody = document.getElementById(`column-${status}`);
+    const countEl = document.getElementById(`count-${status}`);
+    const tasks = filteredTasks.filter(t => t.status === status);
+
+    columnBody.innerHTML = '';
+    tasks.forEach(task => {
+      columnBody.appendChild(createTaskCard(task));
+    });
+
+    countEl.textContent = tasks.length;
+  });
+}
+
+function applyFilter(category) {
+  currentFilter = category;
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.category === category);
+  });
+  renderBoard();
+}
+
+// ===== Initialize =====
+document.addEventListener('DOMContentLoaded', () => {
+  // Set today's date as default for the date picker
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (document.getElementById('task-due')) {
+    document.getElementById('task-due').value = todayStr;
+  }
+
+  renderBoard();
+});
   </script>
 </body>
 </html>
