@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4CAF50">
+  <link rel="manifest" href="manifest.json">
+  <title>DoIt — 个人待办</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #f0f2f5; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Header */
+    #app-header { background: #fff; padding: 12px 20px; display: flex; justify-content: space-between;
+                  align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .app-logo { font-size: 24px; }
+    #app-header h1 { font-size: 20px; font-weight: 700; }
+    .app-subtitle { font-size: 13px; color: #999; }
+    .header-right { display: flex; gap: 6px; }
+    .header-btn { background: none; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 10px;
+                  font-size: 16px; cursor: pointer; transition: background 0.15s; }
+    .header-btn:hover { background: #f5f5f5; }
+    .header-btn:focus-visible { outline: 2px solid #4CAF50; outline-offset: 2px; }
+
+    /* Filter bar */
+    #filter-bar { background: #fff; padding: 10px 20px; display: flex; gap: 6px;
+                  border-bottom: 1px solid #eee; flex-wrap: wrap; }
+    .filter-chip { border: none; background: #f0f0f0; padding: 6px 14px; border-radius: 16px;
+                   font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-chip:hover { background: #e0e0e0; }
+    .filter-chip:focus-visible { outline: 2px solid #4CAF50; outline-offset: 2px; }
+    .filter-chip.active { background: #333; color: #fff; }
+
+    /* Kanban board */
+    #kanban-board { display: flex; gap: 16px; padding: 20px; overflow-x: auto; flex: 1; }
+    .kanban-column { flex: 1; min-width: 260px; max-width: 400px; background: #f5f7fa; border-radius: 10px;
+                    padding: 12px; display: flex; flex-direction: column; }
+    .column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .column-title { font-size: 14px; font-weight: 600; }
+    .column-count { background: #ddd; color: #666; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+    .column-body { flex: 1; min-height: 100px; padding: 4px 0; }
+    .add-card-btn { background: none; border: 1px dashed #ccc; border-radius: 6px; padding: 8px; margin-top: 8px;
+                    font-size: 13px; color: #999; cursor: pointer; transition: all 0.15s; }
+    .add-card-btn:hover { background: #fff; border-color: #aaa; color: #666; }
+
+    /* Task card */
+    .task-card { background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+                 border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+                 cursor: grab; transition: box-shadow 0.15s, transform 0.15s; }
+    .task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .task-card.dragging { opacity: 0.5; }
+    .task-card.priority-high { border-left-color: #ff4444; }
+    .task-card.priority-medium { border-left-color: #ffaa00; }
+    .task-card.priority-low { border-left-color: #4caf50; }
+    .task-card.done { opacity: 0.6; }
+    .task-card.done .task-title { text-decoration: line-through; }
+    .task-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .task-meta { display: flex; gap: 10px; font-size: 11px; color: #888; flex-wrap: wrap; }
+    .task-meta span { display: inline-flex; align-items: center; gap: 2px; }
+
+    /* Card actions */
+    .task-card-actions { display: none; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #f0f0f0; }
+    .task-card:hover .task-card-actions { display: flex; }
+    .task-card-actions button { background: none; border: none; font-size: 12px; padding: 2px 6px;
+                                border-radius: 4px; cursor: pointer; color: #666; }
+    .task-card-actions button:hover { background: #f0f0f0; }
+    .task-card-actions .btn-delete { color: #e53935; }
+    .task-card-actions .btn-delete:hover { background: #fde8e8; }
+
+    /* Drag over indicator */
+    .column-body.drag-over { background: #e8f5e9; border-radius: 6px; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex;
+                    align-items: center; justify-content: center; z-index: 1000; }
+    .modal-overlay.hidden { display: none; }
+    .modal-container { background: #fff; border-radius: 12px; width: 90%; max-width: 400px;
+                       box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee; }
+    .modal-header h2 { font-size: 16px; }
+    .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+    .modal-close-btn:hover { color: #333; }
+    .modal-body { padding: 20px; }
+    .modal-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; gap: 8px; justify-content: flex-end; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .form-group input[type="text"],
+    .form-group select,
+    .form-group input[type="date"] { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+                                     font-size: 14px; background: #fafafa; }
+    .form-group input:focus,
+    .form-group select:focus { border-color: #4CAF50; background: #fff;
+                               box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2); }
+
+    /* Buttons */
+    .btn { padding: 8px 20px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-secondary:hover { background: #e0e0e0; }
+    .btn-primary { background: #333; color: #fff; }
+    .btn-primary:hover { background: #555; }
+    .btn:focus-visible { outline: 2px solid #4CAF50; outline-offset: 2px; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #kanban-board { flex-direction: column; padding: 12px; }
+      .kanban-column { max-width: none; min-width: 0; }
+      .modal-container { width: 95%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- App Header -->
+  <header id="app-header">
+    <div class="header-left">
+      <span class="app-logo">✅</span>
+      <h1>DoIt</h1>
+      <span class="app-subtitle">个人待办</span>
+    </div>
+    <div class="header-right">
+      <button id="btn-export" class="header-btn" title="导出数据">📤</button>
+      <button id="btn-import" class="header-btn" title="导入数据">📥</button>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
+  </header>
+
+  <!-- Category Filter Bar -->
+  <nav id="filter-bar">
+    <button class="filter-chip active" data-category="all">全部</button>
+    <button class="filter-chip" data-category="工作">💼 工作</button>
+    <button class="filter-chip" data-category="生活">🏠 生活</button>
+    <button class="filter-chip" data-category="学习">📚 学习</button>
+  </nav>
+
+  <!-- Kanban Board -->
+  <main id="kanban-board">
+    <!-- Todo Column -->
+    <div class="kanban-column" data-status="todo">
+      <div class="column-header">
+        <span class="column-title">📋 待办</span>
+        <span class="column-count" id="count-todo">0</span>
+      </div>
+      <div class="column-body" id="column-todo" dropzone="move"></div>
+      <button class="add-card-btn" data-status="todo" aria-label="在待办列添加任务">+ 添加任务</button>
+    </div>
+
+    <!-- Doing Column -->
+    <div class="kanban-column" data-status="doing">
+      <div class="column-header">
+        <span class="column-title">🔄 进行中</span>
+        <span class="column-count" id="count-doing">0</span>
+      </div>
+      <div class="column-body" id="column-doing" dropzone="move"></div>
+      <button class="add-card-btn" data-status="doing" aria-label="在进行中列添加任务">+ 添加任务</button>
+    </div>
+
+    <!-- Done Column -->
+    <div class="kanban-column" data-status="done">
+      <div class="column-header">
+        <span class="column-title">✅ 已完成</span>
+        <span class="column-count" id="count-done">0</span>
+      </div>
+      <div class="column-body" id="column-done" dropzone="move"></div>
+      <button class="add-card-btn" data-status="done" aria-label="在已完成列添加任务">+ 添加任务</button>
+    </div>
+  </main>
+
+  <!-- Add/Edit Task Modal -->
+  <div id="task-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modal-title">新建任务</h2>
+        <button id="modal-close" class="modal-close-btn" aria-label="关闭">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="task-title">任务名称</label>
+          <input type="text" id="task-title" placeholder="输入任务名称..." maxlength="100">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="task-category">分类</label>
+            <select id="task-category">
+              <option value="工作">💼 工作</option>
+              <option value="生活">🏠 生活</option>
+              <option value="学习">📚 学习</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="task-priority">优先级</label>
+            <select id="task-priority">
+              <option value="high">🔴 高</option>
+              <option value="medium" selected>🟡 中</option>
+              <option value="low">🟢 低</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="task-due">截止日期</label>
+          <input type="date" id="task-due">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-cancel" class="btn btn-secondary">取消</button>
+        <button id="modal-save" class="btn btn-primary">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+// ===== Data Layer =====
+const STORAGE_KEY_TASKS = 'doit_tasks';
+const STORAGE_KEY_CATEGORIES = 'doit_categories';
+const DEFAULT_CATEGORIES = ['工作', '生活', '学习'];
+
+function generateId() {
+  return 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+}
+
+function loadTasks() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY_TASKS);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveTasks(tasks) {
+  try {
+    localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks));
+  } catch (e) {
+    alert('存储空间已满，请导出数据后清理备份');
+  }
+}
+
+function loadCategories() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY_CATEGORIES);
+    return data ? JSON.parse(data) : [...DEFAULT_CATEGORIES];
+  } catch { return [...DEFAULT_CATEGORIES]; }
+}
+
+function saveCategories(categories) {
+  try {
+    localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(categories));
+  } catch (e) {
+    alert('存储空间已满，请导出数据后清理备份');
+  }
+}
+
+function addTask(taskData) {
+  const title = (taskData.title || '').trim();
+  if (!title) return null;
+  const tasks = loadTasks();
+  const task = {
+    id: generateId(),
+    title: title,
+    category: taskData.category,
+    priority: taskData.priority,
+    dueDate: taskData.dueDate || '',
+    status: taskData.status || 'todo',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  tasks.push(task);
+  saveTasks(tasks);
+  return task;
+}
+
+function updateTask(id, updates) {
+  const tasks = loadTasks();
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx === -1) return null;
+  const protected_fields = { ...updates };
+  delete protected_fields.id;
+  delete protected_fields.createdAt;
+  tasks[idx] = { ...tasks[idx], ...protected_fields, updatedAt: new Date().toISOString() };
+  saveTasks(tasks);
+  return tasks[idx];
+}
+
+function deleteTask(id) {
+  const tasks = loadTasks();
+  const filtered = tasks.filter(t => t.id !== id);
+  saveTasks(filtered);
+  return filtered;
+}
+
+function moveTask(id, newStatus) {
+  return updateTask(id, { status: newStatus });
+}
+
+function exportTasks() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tasks: loadTasks(),
+    categories: loadCategories()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `doit-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importTasks(jsonData) {
+  try {
+    const data = JSON.parse(jsonData);
+    if (!data.tasks || !Array.isArray(data.tasks)) throw new Error('Invalid format');
+    // Validate and deduplicate tasks
+    const validTasks = data.tasks.filter(t => t && t.id && t.title);
+    const seen = new Set();
+    const deduped = validTasks.filter(t => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+    saveTasks(deduped);
+    if (data.categories && Array.isArray(data.categories)) {
+      saveCategories(data.categories);
+    }
+    return true;
+  } catch (e) {
+    alert('导入失败：文件格式不正确');
+    return false;
+  }
+}
+// ===== Drag & Drop =====
+function onDragStart(e) {
+  const card = this.closest('.task-card');
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', card.dataset.taskId);
+}
+
+function onDragEnd(e) {
+  const card = this.closest('.task-card');
+  if (card) card.classList.remove('dragging');
+  document.querySelectorAll('.column-body').forEach(el => el.classList.remove('drag-over'));
+}
+
+// ===== Render Layer =====
+let currentFilter = 'all';
+
+function getFilteredTasks() {
+  const tasks = loadTasks();
+  if (currentFilter === 'all') return tasks;
+  return tasks.filter(t => t.category === currentFilter);
+}
+
+const PRIORITY_LABELS = { high: '🔴 高', medium: '🟡 中', low: '🟢 低' };
+const CATEGORY_ICONS = { '工作': '💼', '生活': '🏠', '学习': '📚' };
+
+function createTaskCard(task) {
+  const card = document.createElement('div');
+  card.className = `task-card priority-${task.priority}`;
+  if (task.status === 'done') card.classList.add('done');
+  card.draggable = true;
+  card.dataset.taskId = task.id;
+
+  // Build card structure with DOM API to prevent XSS
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'task-title';
+  titleDiv.textContent = task.title;
+
+  const metaDiv = document.createElement('div');
+  metaDiv.className = 'task-meta';
+  if (task.category) {
+    const catSpan = document.createElement('span');
+    catSpan.textContent = `${CATEGORY_ICONS[task.category] || ''} ${task.category}`;
+    metaDiv.appendChild(catSpan);
+  }
+  if (task.dueDate) {
+    const dateSpan = document.createElement('span');
+    dateSpan.textContent = `📅 ${formatDate(task.dueDate)}`;
+    metaDiv.appendChild(dateSpan);
+  }
+  const priSpan = document.createElement('span');
+  priSpan.textContent = PRIORITY_LABELS[task.priority] || '🟡 中';
+  metaDiv.appendChild(priSpan);
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'task-card-actions';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn-edit';
+  editBtn.textContent = '✏️ 编辑';
+  editBtn.addEventListener('click', () => editTask(task.id));
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn-delete';
+  delBtn.textContent = '🗑 删除';
+  delBtn.addEventListener('click', () => confirmDelete(task.id));
+  actionsDiv.appendChild(editBtn);
+  actionsDiv.appendChild(delBtn);
+
+  card.appendChild(titleDiv);
+  card.appendChild(metaDiv);
+  card.appendChild(actionsDiv);
+
+  // Drag events
+  card.addEventListener('dragstart', onDragStart);
+  card.addEventListener('dragend', onDragEnd);
+
+  return card;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff < 0) return `已过期 ${d.getMonth()+1}/${d.getDate()}`;
+  if (diff === 0) return '今天';
+  if (diff === 1) return '明天';
+  if (diff < 7) return `周${'日一二三四五六'[d.getDay()]}`;
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function renderBoard() {
+  const filteredTasks = getFilteredTasks();
+  const columns = ['todo', 'doing', 'done'];
+
+  columns.forEach(status => {
+    const columnBody = document.getElementById(`column-${status}`);
+    const countEl = document.getElementById(`count-${status}`);
+    const tasks = filteredTasks.filter(t => t.status === status);
+
+    columnBody.innerHTML = '';
+    tasks.forEach(task => {
+      columnBody.appendChild(createTaskCard(task));
+    });
+
+    countEl.textContent = tasks.length;
+  });
+}
+
+function applyFilter(category) {
+  currentFilter = category;
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.category === category);
+  });
+  renderBoard();
+}
+
+// ===== Modal Logic =====
+let editingTaskId = null;
+let isSaving = false;
+
+function populateCategorySelect(selectedValue) {
+  const select = document.getElementById('task-category');
+  const categories = loadCategories();
+  select.innerHTML = '';
+  categories.forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = `${CATEGORY_ICONS[cat] || ''} ${cat}`;
+    if (cat === selectedValue) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function openAddModal(status = 'todo') {
+  editingTaskId = null;
+  isSaving = false;
+  document.getElementById('modal-title').textContent = '新建任务';
+  document.getElementById('modal-save').textContent = '添加';
+  document.getElementById('task-title').value = '';
+  populateCategorySelect('工作');
+  document.getElementById('task-priority').value = 'medium';
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById('task-due').value = todayStr;
+  document.getElementById('task-modal').classList.remove('hidden');
+  document.getElementById('task-modal').dataset.targetStatus = status;
+  document.getElementById('task-title').focus();
+}
+
+function openEditModal(taskId) {
+  const tasks = loadTasks();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) { alert('任务已被删除'); return; }
+
+  editingTaskId = taskId;
+  isSaving = false;
+  document.getElementById('modal-title').textContent = '编辑任务';
+  document.getElementById('modal-save').textContent = '保存';
+  document.getElementById('task-title').value = task.title;
+  populateCategorySelect(task.category);
+  document.getElementById('task-priority').value = task.priority;
+  document.getElementById('task-due').value = task.dueDate || '';
+  document.getElementById('task-modal').classList.remove('hidden');
+  document.getElementById('task-title').focus();
+}
+
+function closeModal() {
+  document.getElementById('task-modal').classList.add('hidden');
+  editingTaskId = null;
+  isSaving = false;
+}
+
+function saveTaskFromModal() {
+  if (isSaving) return;
+  const title = document.getElementById('task-title').value.trim();
+  if (!title) { alert('请输入任务名称'); return; }
+
+  isSaving = true;
+  const data = {
+    title,
+    category: document.getElementById('task-category').value,
+    priority: document.getElementById('task-priority').value,
+    dueDate: document.getElementById('task-due').value
+  };
+
+  if (editingTaskId) {
+    updateTask(editingTaskId, data);
+  } else {
+    data.status = document.getElementById('task-modal').dataset.targetStatus || 'todo';
+    addTask(data);
+  }
+
+  closeModal();
+  renderBoard();
+}
+
+// Global functions referenced by card event listeners
+function editTask(id) {
+  openEditModal(id);
+}
+
+function confirmDelete(id) {
+  if (confirm('确定要删除这个任务吗？')) {
+    deleteTask(id);
+    renderBoard();
+  }
+}
+
+// ===== Event Bindings =====
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize sample data on first visit
+  const existingTasks = loadTasks();
+  if (existingTasks.length === 0) {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const day3 = new Date(today);
+    day3.setDate(day3.getDate() + 3);
+    const day3Str = day3.toISOString().slice(0, 10);
+
+    addTask({ title: '买牛奶', category: '生活', priority: 'high', dueDate: todayStr, status: 'todo' });
+    addTask({ title: '准备演示PPT', category: '工作', priority: 'medium', dueDate: tomorrowStr, status: 'todo' });
+    addTask({ title: '复习英语笔记', category: '学习', priority: 'low', dueDate: day3Str, status: 'todo' });
+    addTask({ title: '写周报', category: '工作', priority: 'medium', dueDate: '', status: 'doing' });
+    addTask({ title: '整理书架', category: '生活', priority: 'low', dueDate: '', status: 'done' });
+  }
+
+  // Drop zone setup
+  document.querySelectorAll('.column-body').forEach(columnBody => {
+    columnBody.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      columnBody.classList.add('drag-over');
+    });
+
+    columnBody.addEventListener('dragleave', (e) => {
+      if (!columnBody.contains(e.relatedTarget)) {
+        columnBody.classList.remove('drag-over');
+      }
+    });
+
+    columnBody.addEventListener('drop', (e) => {
+      e.preventDefault();
+      columnBody.classList.remove('drag-over');
+
+      const taskId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('Text');
+      if (!taskId) return;
+
+      const column = columnBody.closest('.kanban-column');
+      const newStatus = column.dataset.status;
+
+      const tasks = loadTasks();
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || task.status === newStatus) return;
+
+      // Visual feedback: fade old card
+      const oldCard = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+      if (oldCard) {
+        oldCard.style.transition = 'transform 0.2s, opacity 0.2s';
+        oldCard.style.opacity = '0';
+      }
+
+      moveTask(taskId, newStatus);
+      setTimeout(renderBoard, 200);
+    });
+  });
+
+  // Filter chips
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => applyFilter(chip.dataset.category));
+  });
+
+  // Add card buttons
+  document.querySelectorAll('.add-card-btn').forEach(btn => {
+    btn.addEventListener('click', () => openAddModal(btn.dataset.status));
+  });
+
+  // Modal controls
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-save').addEventListener('click', saveTaskFromModal);
+  document.getElementById('task-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  // Export
+  document.getElementById('btn-export').addEventListener('click', exportTasks);
+
+  // Import
+  document.getElementById('btn-import').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (importTasks(ev.target.result)) {
+        renderBoard();
+        alert('导入成功！');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter' && !document.getElementById('task-modal').classList.contains('hidden')) {
+      e.preventDefault();
+      const active = document.activeElement;
+      if (active && active.tagName !== 'SELECT') saveTaskFromModal();
+    }
+  });
+
+  renderBoard();
+});
+  </script>
+</body>
+</html>
