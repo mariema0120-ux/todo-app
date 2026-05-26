@@ -401,7 +401,7 @@ function createTaskCard(task) {
   card.appendChild(metaDiv);
   card.appendChild(actionsDiv);
 
-  // Drag events (handlers will be defined in Task 6)
+  // Drag events
   card.addEventListener('dragstart', onDragStart);
   card.addEventListener('dragend', onDragEnd);
 
@@ -555,15 +555,17 @@ document.addEventListener('DOMContentLoaded', () => {
       columnBody.classList.add('drag-over');
     });
 
-    columnBody.addEventListener('dragleave', () => {
-      columnBody.classList.remove('drag-over');
+    columnBody.addEventListener('dragleave', (e) => {
+      if (!columnBody.contains(e.relatedTarget)) {
+        columnBody.classList.remove('drag-over');
+      }
     });
 
     columnBody.addEventListener('drop', (e) => {
       e.preventDefault();
       columnBody.classList.remove('drag-over');
 
-      const taskId = e.dataTransfer.getData('text/plain');
+      const taskId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('Text');
       if (!taskId) return;
 
       const column = columnBody.closest('.kanban-column');
