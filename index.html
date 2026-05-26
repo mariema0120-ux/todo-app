@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4CAF50">
+  <link rel="manifest" href="manifest.json">
+  <title>DoIt — 个人待办</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #f0f2f5; color: #333; min-height: 100vh; }
+
+    /* Header */
+    #app-header { background: #fff; padding: 12px 20px; display: flex; justify-content: space-between;
+                  align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .app-logo { font-size: 24px; }
+    #app-header h1 { font-size: 20px; font-weight: 700; }
+    .app-subtitle { font-size: 13px; color: #999; }
+    .header-right { display: flex; gap: 6px; }
+    .header-btn { background: none; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 10px;
+                  font-size: 16px; cursor: pointer; transition: background 0.15s; }
+    .header-btn:hover { background: #f5f5f5; }
+
+    /* Filter bar */
+    #filter-bar { background: #fff; padding: 10px 20px; display: flex; gap: 6px;
+                  border-bottom: 1px solid #eee; flex-wrap: wrap; }
+    .filter-chip { border: none; background: #f0f0f0; padding: 6px 14px; border-radius: 16px;
+                   font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-chip:hover { background: #e0e0e0; }
+    .filter-chip.active { background: #333; color: #fff; }
+
+    /* Kanban board */
+    #kanban-board { display: flex; gap: 16px; padding: 20px; overflow-x: auto; flex: 1; min-height: calc(100vh - 120px); }
+    .kanban-column { flex: 1; min-width: 260px; max-width: 400px; background: #f5f7fa; border-radius: 10px;
+                    padding: 12px; display: flex; flex-direction: column; }
+    .column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .column-title { font-size: 14px; font-weight: 600; }
+    .column-count { background: #ddd; color: #666; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+    .column-body { flex: 1; min-height: 100px; padding: 4px 0; }
+    .add-card-btn { background: none; border: 1px dashed #ccc; border-radius: 6px; padding: 8px; margin-top: 8px;
+                    font-size: 13px; color: #999; cursor: pointer; transition: all 0.15s; }
+    .add-card-btn:hover { background: #fff; border-color: #aaa; color: #666; }
+
+    /* Task card */
+    .task-card { background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+                 border-left: 4px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+                 cursor: grab; transition: box-shadow 0.15s, transform 0.15s; }
+    .task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .task-card.dragging { opacity: 0.5; }
+    .task-card.priority-high { border-left-color: #ff4444; }
+    .task-card.priority-medium { border-left-color: #ffaa00; }
+    .task-card.priority-low { border-left-color: #4caf50; }
+    .task-card.done { opacity: 0.6; }
+    .task-card.done .task-title { text-decoration: line-through; }
+    .task-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .task-meta { display: flex; gap: 10px; font-size: 11px; color: #888; flex-wrap: wrap; }
+    .task-meta span { display: inline-flex; align-items: center; gap: 2px; }
+
+    /* Card actions */
+    .task-card-actions { display: none; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #f0f0f0; }
+    .task-card:hover .task-card-actions { display: flex; }
+    .task-card-actions button { background: none; border: none; font-size: 12px; padding: 2px 6px;
+                                border-radius: 4px; cursor: pointer; color: #666; }
+    .task-card-actions button:hover { background: #f0f0f0; }
+    .task-card-actions .btn-delete { color: #e53935; }
+    .task-card-actions .btn-delete:hover { background: #fde8e8; }
+
+    /* Drag over indicator */
+    .column-body.drag-over { background: #e8f5e9; border-radius: 6px; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex;
+                    align-items: center; justify-content: center; z-index: 1000; }
+    .modal-overlay.hidden { display: none; }
+    .modal-container { background: #fff; border-radius: 12px; width: 90%; max-width: 400px;
+                       box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee; }
+    .modal-header h2 { font-size: 16px; }
+    .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+    .modal-close-btn:hover { color: #333; }
+    .modal-body { padding: 20px; }
+    .modal-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; gap: 8px; justify-content: flex-end; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .form-group input[type="text"],
+    .form-group select,
+    .form-group input[type="date"] { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+                                     font-size: 14px; background: #fafafa; }
+    .form-group input:focus,
+    .form-group select:focus { outline: none; border-color: #4CAF50; background: #fff; }
+
+    /* Buttons */
+    .btn { padding: 8px 20px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-secondary:hover { background: #e0e0e0; }
+    .btn-primary { background: #333; color: #fff; }
+    .btn-primary:hover { background: #555; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #kanban-board { flex-direction: column; padding: 12px; }
+      .kanban-column { max-width: none; min-width: 0; }
+      .modal-container { width: 95%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- App Header -->
+  <header id="app-header">
+    <div class="header-left">
+      <span class="app-logo">✅</span>
+      <h1>DoIt</h1>
+      <span class="app-subtitle">个人待办</span>
+    </div>
+    <div class="header-right">
+      <button id="btn-export" class="header-btn" title="导出数据">📤</button>
+      <button id="btn-import" class="header-btn" title="导入数据">📥</button>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
+  </header>
+
+  <!-- Category Filter Bar -->
+  <nav id="filter-bar">
+    <button class="filter-chip active" data-category="all">全部</button>
+    <button class="filter-chip" data-category="工作">💼 工作</button>
+    <button class="filter-chip" data-category="生活">🏠 生活</button>
+    <button class="filter-chip" data-category="学习">📚 学习</button>
+  </nav>
+
+  <!-- Kanban Board -->
+  <main id="kanban-board">
+    <!-- Todo Column -->
+    <div class="kanban-column" data-status="todo">
+      <div class="column-header">
+        <span class="column-title">📋 待办</span>
+        <span class="column-count" id="count-todo">0</span>
+      </div>
+      <div class="column-body" id="column-todo" dropzone="move"></div>
+      <button class="add-card-btn" data-status="todo">+ 添加任务</button>
+    </div>
+
+    <!-- Doing Column -->
+    <div class="kanban-column" data-status="doing">
+      <div class="column-header">
+        <span class="column-title">🔄 进行中</span>
+        <span class="column-count" id="count-doing">0</span>
+      </div>
+      <div class="column-body" id="column-doing" dropzone="move"></div>
+      <button class="add-card-btn" data-status="doing">+ 添加任务</button>
+    </div>
+
+    <!-- Done Column -->
+    <div class="kanban-column" data-status="done">
+      <div class="column-header">
+        <span class="column-title">✅ 已完成</span>
+        <span class="column-count" id="count-done">0</span>
+      </div>
+      <div class="column-body" id="column-done" dropzone="move"></div>
+      <button class="add-card-btn" data-status="done">+ 添加任务</button>
+    </div>
+  </main>
+
+  <!-- Add/Edit Task Modal -->
+  <div id="task-modal" class="modal-overlay hidden">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modal-title">新建任务</h2>
+        <button id="modal-close" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>任务名称</label>
+          <input type="text" id="task-title" placeholder="输入任务名称..." maxlength="100">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>分类</label>
+            <select id="task-category">
+              <option value="工作">💼 工作</option>
+              <option value="生活">🏠 生活</option>
+              <option value="学习">📚 学习</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>优先级</label>
+            <select id="task-priority">
+              <option value="high">🔴 高</option>
+              <option value="medium" selected>🟡 中</option>
+              <option value="low">🟢 低</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>截止日期</label>
+          <input type="date" id="task-due">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-cancel" class="btn btn-secondary">取消</button>
+        <button id="modal-save" class="btn btn-primary">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // JS will be added in subsequent tasks
+  </script>
+</body>
+</html>
