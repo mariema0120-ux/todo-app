@@ -547,6 +547,25 @@ function confirmDelete(id) {
 
 // ===== Event Bindings =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize sample data on first visit
+  const existingTasks = loadTasks();
+  if (existingTasks.length === 0) {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const day3 = new Date(today);
+    day3.setDate(day3.getDate() + 3);
+    const day3Str = day3.toISOString().slice(0, 10);
+
+    addTask({ title: '买牛奶', category: '生活', priority: 'high', dueDate: todayStr, status: 'todo' });
+    addTask({ title: '准备演示PPT', category: '工作', priority: 'medium', dueDate: tomorrowStr, status: 'todo' });
+    addTask({ title: '复习英语笔记', category: '学习', priority: 'low', dueDate: day3Str, status: 'todo' });
+    addTask({ title: '写周报', category: '工作', priority: 'medium', dueDate: '', status: 'doing' });
+    addTask({ title: '整理书架', category: '生活', priority: 'low', dueDate: '', status: 'done' });
+  }
+
   // Drop zone setup
   document.querySelectorAll('.column-body').forEach(columnBody => {
     columnBody.addEventListener('dragover', (e) => {
