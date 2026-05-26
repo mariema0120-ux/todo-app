@@ -228,7 +228,11 @@ function loadTasks() {
 }
 
 function saveTasks(tasks) {
-  localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks));
+  try {
+    localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks));
+  } catch (e) {
+    alert('存储空间已满，请导出数据后清理备份');
+  }
 }
 
 function loadCategories() {
@@ -239,14 +243,20 @@ function loadCategories() {
 }
 
 function saveCategories(categories) {
-  localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(categories));
+  try {
+    localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(categories));
+  } catch (e) {
+    alert('存储空间已满，请导出数据后清理备份');
+  }
 }
 
 function addTask(taskData) {
+  const title = (taskData.title || '').trim();
+  if (!title) return null;
   const tasks = loadTasks();
   const task = {
     id: generateId(),
-    title: taskData.title.trim(),
+    title: title,
     category: taskData.category,
     priority: taskData.priority,
     dueDate: taskData.dueDate || '',
@@ -263,7 +273,10 @@ function updateTask(id, updates) {
   const tasks = loadTasks();
   const idx = tasks.findIndex(t => t.id === id);
   if (idx === -1) return null;
-  tasks[idx] = { ...tasks[idx], ...updates, updatedAt: new Date().toISOString() };
+  const protected_fields = { ...updates };
+  delete protected_fields.id;
+  delete protected_fields.createdAt;
+  tasks[idx] = { ...tasks[idx], ...protected_fields, updatedAt: new Date().toISOString() };
   saveTasks(tasks);
   return tasks[idx];
 }
@@ -299,7 +312,15 @@ function importTasks(jsonData) {
   try {
     const data = JSON.parse(jsonData);
     if (!data.tasks || !Array.isArray(data.tasks)) throw new Error('Invalid format');
-    saveTasks(data.tasks);
+    // Validate and deduplicate tasks
+    const validTasks = data.tasks.filter(t => t && t.id && t.title);
+    const seen = new Set();
+    const deduped = validTasks.filter(t => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+    saveTasks(deduped);
     if (data.categories && Array.isArray(data.categories)) {
       saveCategories(data.categories);
     }
