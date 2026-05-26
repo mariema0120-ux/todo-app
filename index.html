@@ -446,13 +446,28 @@ function applyFilter(category) {
 
 // ===== Modal Logic =====
 let editingTaskId = null;
+let isSaving = false;
+
+function populateCategorySelect(selectedValue) {
+  const select = document.getElementById('task-category');
+  const categories = loadCategories();
+  select.innerHTML = '';
+  categories.forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = `${CATEGORY_ICONS[cat] || ''} ${cat}`;
+    if (cat === selectedValue) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
 
 function openAddModal(status = 'todo') {
   editingTaskId = null;
+  isSaving = false;
   document.getElementById('modal-title').textContent = '新建任务';
   document.getElementById('modal-save').textContent = '添加';
   document.getElementById('task-title').value = '';
-  document.getElementById('task-category').value = '工作';
+  populateCategorySelect('工作');
   document.getElementById('task-priority').value = 'medium';
   const todayStr = new Date().toISOString().slice(0, 10);
   document.getElementById('task-due').value = todayStr;
@@ -464,13 +479,14 @@ function openAddModal(status = 'todo') {
 function openEditModal(taskId) {
   const tasks = loadTasks();
   const task = tasks.find(t => t.id === taskId);
-  if (!task) return;
+  if (!task) { alert('任务已被删除'); return; }
 
   editingTaskId = taskId;
+  isSaving = false;
   document.getElementById('modal-title').textContent = '编辑任务';
   document.getElementById('modal-save').textContent = '保存';
   document.getElementById('task-title').value = task.title;
-  document.getElementById('task-category').value = task.category;
+  populateCategorySelect(task.category);
   document.getElementById('task-priority').value = task.priority;
   document.getElementById('task-due').value = task.dueDate || '';
   document.getElementById('task-modal').classList.remove('hidden');
@@ -480,12 +496,15 @@ function openEditModal(taskId) {
 function closeModal() {
   document.getElementById('task-modal').classList.add('hidden');
   editingTaskId = null;
+  isSaving = false;
 }
 
 function saveTaskFromModal() {
+  if (isSaving) return;
   const title = document.getElementById('task-title').value.trim();
   if (!title) { alert('请输入任务名称'); return; }
 
+  isSaving = true;
   const data = {
     title,
     category: document.getElementById('task-category').value,
@@ -561,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
     if (e.key === 'Enter' && !document.getElementById('task-modal').classList.contains('hidden')) {
+      e.preventDefault();
       const active = document.activeElement;
       if (active && active.tagName !== 'SELECT') saveTaskFromModal();
     }
