@@ -444,13 +444,127 @@ function applyFilter(category) {
   renderBoard();
 }
 
-// ===== Initialize =====
-document.addEventListener('DOMContentLoaded', () => {
-  // Set today's date as default for the date picker
+// ===== Modal Logic =====
+let editingTaskId = null;
+
+function openAddModal(status = 'todo') {
+  editingTaskId = null;
+  document.getElementById('modal-title').textContent = '新建任务';
+  document.getElementById('modal-save').textContent = '添加';
+  document.getElementById('task-title').value = '';
+  document.getElementById('task-category').value = '工作';
+  document.getElementById('task-priority').value = 'medium';
   const todayStr = new Date().toISOString().slice(0, 10);
-  if (document.getElementById('task-due')) {
-    document.getElementById('task-due').value = todayStr;
+  document.getElementById('task-due').value = todayStr;
+  document.getElementById('task-modal').classList.remove('hidden');
+  document.getElementById('task-modal').dataset.targetStatus = status;
+  document.getElementById('task-title').focus();
+}
+
+function openEditModal(taskId) {
+  const tasks = loadTasks();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  editingTaskId = taskId;
+  document.getElementById('modal-title').textContent = '编辑任务';
+  document.getElementById('modal-save').textContent = '保存';
+  document.getElementById('task-title').value = task.title;
+  document.getElementById('task-category').value = task.category;
+  document.getElementById('task-priority').value = task.priority;
+  document.getElementById('task-due').value = task.dueDate || '';
+  document.getElementById('task-modal').classList.remove('hidden');
+  document.getElementById('task-title').focus();
+}
+
+function closeModal() {
+  document.getElementById('task-modal').classList.add('hidden');
+  editingTaskId = null;
+}
+
+function saveTaskFromModal() {
+  const title = document.getElementById('task-title').value.trim();
+  if (!title) { alert('请输入任务名称'); return; }
+
+  const data = {
+    title,
+    category: document.getElementById('task-category').value,
+    priority: document.getElementById('task-priority').value,
+    dueDate: document.getElementById('task-due').value
+  };
+
+  if (editingTaskId) {
+    updateTask(editingTaskId, data);
+  } else {
+    data.status = document.getElementById('task-modal').dataset.targetStatus || 'todo';
+    addTask(data);
   }
+
+  closeModal();
+  renderBoard();
+}
+
+// Global functions referenced by card event listeners
+function editTask(id) {
+  openEditModal(id);
+}
+
+function confirmDelete(id) {
+  if (confirm('确定要删除这个任务吗？')) {
+    deleteTask(id);
+    renderBoard();
+  }
+}
+
+// ===== Event Bindings =====
+document.addEventListener('DOMContentLoaded', () => {
+  // Filter chips
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => applyFilter(chip.dataset.category));
+  });
+
+  // Add card buttons
+  document.querySelectorAll('.add-card-btn').forEach(btn => {
+    btn.addEventListener('click', () => openAddModal(btn.dataset.status));
+  });
+
+  // Modal controls
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-save').addEventListener('click', saveTaskFromModal);
+  document.getElementById('task-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  // Export
+  document.getElementById('btn-export').addEventListener('click', exportTasks);
+
+  // Import
+  document.getElementById('btn-import').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (importTasks(ev.target.result)) {
+        renderBoard();
+        alert('导入成功！');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter' && !document.getElementById('task-modal').classList.contains('hidden')) {
+      const active = document.activeElement;
+      if (active && active.tagName !== 'SELECT') saveTaskFromModal();
+    }
+  });
 
   renderBoard();
 });
