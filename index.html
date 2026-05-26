@@ -353,18 +353,43 @@ function createTaskCard(task) {
   card.draggable = true;
   card.dataset.taskId = task.id;
 
-  card.innerHTML = `
-    <div class="task-title">${escapeHtml(task.title)}</div>
-    <div class="task-meta">
-      ${task.category ? `<span>${CATEGORY_ICONS[task.category] || ''} ${task.category}</span>` : ''}
-      ${task.dueDate ? `<span>📅 ${formatDate(task.dueDate)}</span>` : ''}
-      <span>${PRIORITY_LABELS[task.priority] || '🟡 中'}</span>
-    </div>
-    <div class="task-card-actions">
-      <button class="btn-edit" onclick="editTask('${task.id}')">✏️ 编辑</button>
-      <button class="btn-delete" onclick="confirmDelete('${task.id}')">🗑 删除</button>
-    </div>
-  `;
+  // Build card structure with DOM API to prevent XSS
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'task-title';
+  titleDiv.textContent = task.title;
+
+  const metaDiv = document.createElement('div');
+  metaDiv.className = 'task-meta';
+  if (task.category) {
+    const catSpan = document.createElement('span');
+    catSpan.textContent = `${CATEGORY_ICONS[task.category] || ''} ${task.category}`;
+    metaDiv.appendChild(catSpan);
+  }
+  if (task.dueDate) {
+    const dateSpan = document.createElement('span');
+    dateSpan.textContent = `📅 ${formatDate(task.dueDate)}`;
+    metaDiv.appendChild(dateSpan);
+  }
+  const priSpan = document.createElement('span');
+  priSpan.textContent = PRIORITY_LABELS[task.priority] || '🟡 中';
+  metaDiv.appendChild(priSpan);
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'task-card-actions';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn-edit';
+  editBtn.textContent = '✏️ 编辑';
+  editBtn.addEventListener('click', () => editTask(task.id));
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn-delete';
+  delBtn.textContent = '🗑 删除';
+  delBtn.addEventListener('click', () => confirmDelete(task.id));
+  actionsDiv.appendChild(editBtn);
+  actionsDiv.appendChild(delBtn);
+
+  card.appendChild(titleDiv);
+  card.appendChild(metaDiv);
+  card.appendChild(actionsDiv);
 
   // Drag events (handlers will be defined in Task 6)
   card.addEventListener('dragstart', onDragStart);
@@ -382,9 +407,10 @@ function escapeHtml(text) {
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
   const today = new Date();
   today.setHours(0,0,0,0);
-  const diff = (d - today) / 86400000;
+  const diff = Math.round((d - today) / 86400000);
   if (diff < 0) return `已过期 ${d.getMonth()+1}/${d.getDate()}`;
   if (diff === 0) return '今天';
   if (diff === 1) return '明天';
