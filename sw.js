@@ -1,6 +1,5 @@
 const CACHE_NAME = 'doit-v1';
 const ASSETS = [
-  './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
@@ -9,9 +8,10 @@ const ASSETS = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
@@ -24,15 +24,21 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
     caches.match(event.request).then(cached =>
       cached || fetch(event.request).then(response => {
-        if (event.request.url.match(/\.(png|jpg|css|js|json|html?)$/)) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        if (response.ok) {
+          const url = new URL(event.request.url);
+          if (url.pathname.match(/\.(png|jpg|css|js|json|html?)$/i)) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
         }
         return response;
-      })
+      }).catch(() => caches.match(event.request).then(fallback => {
+        return fallback || new Response('Offline', { status: 503 });
+      }))
     )
   );
 });

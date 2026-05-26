@@ -4,6 +4,7 @@
   "description": "个人待办清单 · 看板管理",
   "start_url": "/todo-app/index.html",
   "display": "standalone",
+  "scope": "/todo-app/",
   "background_color": "#f5f5f5",
   "theme_color": "#4CAF50",
   "icons": [
